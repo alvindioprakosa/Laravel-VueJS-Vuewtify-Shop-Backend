@@ -4,88 +4,45 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Category;
-use App\Models\Book;
-use App\Models\BookCategory;
 use App\Http\Resources\Category as CategoryResource;
 use App\Http\Resources\Categories as CategoryResourceCollection;
 
-
 class CategoryController extends Controller
 {
-     /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function index()
     {
-        $criteria = Category::paginate(6);
-        return new CategoryResourceCollection($criteria);
+        return new CategoryResourceCollection(Category::paginate(6));
     }
 
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function random($count)
     {
-        $criteria = Category::select('*')
-            ->inRandomOrder()
-            ->limit($count)
-            ->get();        
-        return new CategoryResourceCollection($criteria);
+        return new CategoryResourceCollection(
+            Category::inRandomOrder()->limit($count)->get()
+        );
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function store(Request $request)
     {
-        //
+        // Implementasi create category (optional)
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function show($id)
     {
-        return new CategoryResource(Category::find($id));
+        return new CategoryResource(Category::findOrFail($id));
     }
 
     public function slug($slug)
     {
-       
-        $criteria = Category::where('slug', $slug)->first();
-        return new CategoryResource($criteria);
+        return new CategoryResource(Category::where('slug', $slug)->firstOrFail());
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function update(Request $request, $id)
     {
-        //
+        // Implementasi update category (optional)
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function destroy($id)
     {
-        //
+        // Implementasi delete category (optional)
     }
 }
