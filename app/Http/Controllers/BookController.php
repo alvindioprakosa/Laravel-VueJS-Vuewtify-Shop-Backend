@@ -4,129 +4,92 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Book; 
-use App\Models\Category; 
 use App\Http\Resources\Book as BookResource;
 use App\Http\Resources\Books as BookResourceCollection;
 
 class BookController extends Controller
 {
-     /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function index()
     {
-        $criteria = Book::paginate(6);
-        return new BookResourceCollection($criteria);
+        return new BookResourceCollection(Book::paginate(6));
     }
 
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function top($count)
     {
-        $criteria = Book::select('*')
-            ->orderBy('views', 'DESC')
-            ->limit($count)
-            ->get();        
-        return new BookResourceCollection($criteria);
+        return new BookResourceCollection(
+            Book::orderByDesc('views')->limit($count)->get()
+        );
     }
 
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function search($keyword)
     {
-        $criteria = Book::select('*')
-            ->where('title', 'LIKE', "%".$keyword."%")
-            ->orderBy('views', 'DESC')
-            ->get();        
-        return new BookResourceCollection($criteria);
+        return new BookResourceCollection(
+            Book::where('title', 'like', '%' . $keyword . '%')
+                ->orderByDesc('views')
+                ->get()
+        );
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function store(Request $request)
     {
-        //
+        // Implementasi menyusul
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function show($id)
     {
-        return new BookResource(Book::find($id));
+        return new BookResource(Book::findOrFail($id));
     }
 
     public function slug($slug)
     {
-        $criteria = Book::where('slug', $slug)->first();
-        return new BookResource($criteria);
+        $book = Book::where('slug', $slug)->firstOrFail();
+        return new BookResource($book);
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function update(Request $request, $id)
     {
-        //
+        // Implementasi menyusul
     }
 
-    /**
-     * Display a listing of the resource.
-     *
-     * @param  array  $carts
-     * @return \Illuminate\Http\Response
-     */
     public function cart(Request $request)
     {
-        //$request->carts = '[{"id":3,"quantity":4}]';
         $carts = json_decode($request->carts, true);
-        $book_carts = [];
-        foreach($carts as $cart){
-            $id = (int)$cart['id'];
-            $quantity = (int)$cart['quantity'];
-            $book = Book::find($id);
-            if($book){
-                $note = 'unsafe';
-                if($book->stock >= $quantity){
-                    $note = 'safe';
-                }
-                else {
-                    $quantity = (int) $book->stock;
-                    $note = 'out of stock'; 
-                }
-                $book_carts[] = [
-                    'id' => $id,
-                    'title' => $book->title,
-                    'cover' => $book->cover,
-                    'price' => $book->price,
-                    'quantity' => $quantity,
-                    'note' => $note
-                ];
-            }
+
+        if (!is_array($carts)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid cart format',
+            ], 400);
         }
+
+        $bookCarts = collect($carts)->map(function ($cart) {
+            $book = Book::find($cart['id']);
+
+            if (!$book) return null;
+
+            $quantity = (int) $cart['quantity'];
+            $stock = (int) $book->stock;
+
+            $note = 'safe';
+            if ($stock < $quantity) {
+                $note = $stock > 0 ? 'out of stock' : 'unsafe';
+                $quantity = $stock;
+            }
+
+            return [
+                'id' => $book->id,
+                'title' => $book->title,
+                'cover' => $book->cover,
+                'price' => $book->price,
+                'quantity' => $quantity,
+                'note' => $note
+            ];
+        })->filter()->values();
+
         return response()->json([
             'status' => 'success',
             'message' => 'carts',
-            'data' => $book_carts,
-        ], 200); 
+            'data' => $bookCarts,
+        ], 200);
     }
 }
