@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\{Province, City, User, Book, Order, BookOrder};
 use App\Http\Resources\Provinces as ProvinceResourceCollection;
 use App\Http\Resources\Cities as CityResourceCollection;
+use App\Http\Resources\Order as OrderResource;
 
 class ShopController extends Controller
 {
@@ -29,7 +30,7 @@ class ShopController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'required', 
+            'name' => 'required',
             'address' => 'required',
             'phone' => 'required',
             'province_id' => 'required',
@@ -37,6 +38,7 @@ class ShopController extends Controller
         ]);
 
         $user->fill($validated);
+
         if ($user->save()) {
             return $this->jsonSuccess('Update shipping success', $user);
         }
@@ -65,7 +67,7 @@ class ShopController extends Controller
             CURLOPT_POSTFIELDS => http_build_query($data),
             CURLOPT_HTTPHEADER => [
                 "content-type: application/x-www-form-urlencoded",
-                "key: c82e4567ef2c0a91100fa35077143ae9"
+                "key: " . config('services.rajaongkir.key')
             ],
         ]);
 
@@ -81,7 +83,7 @@ class ShopController extends Controller
         $safeCarts = [];
         $total = ['quantity_before' => 0, 'quantity' => 0, 'price' => 0, 'weight' => 0];
 
-        foreach ($carts as $idx => $cart) {
+        foreach ($carts as $cart) {
             $book = Book::find($cart['id']);
             if (!$book || $book->stock <= 0) continue;
 
@@ -104,16 +106,34 @@ class ShopController extends Controller
         return compact('safeCarts', 'total');
     }
 
+    protected function convertToGram($weightInKg)
+    {
+        return $weightInKg * 1000;
+    }
+
     public function services(Request $request)
     {
-        $request->validate(['courier' => 'required', 'carts' => 'required']);
-        $user = Auth::user();
-        if (!$user || !$user->city_id) return $this->jsonError('User or destination not set');
+        $request->validate([
+            'courier' => 'required',
+            'carts' => 'required'
+        ]);
 
-        $carts = json_decode($request->carts, true);
+        $user = Auth::user();
+        if (!$user || !$user->city_id) {
+            return $this->jsonError('User or destination not set');
+        }
+
+        $carts = json_decode($request->carts, true) ?? [];
+        if (empty($carts)) {
+            return $this->jsonError('Invalid carts data');
+        }
+
         $valid = $this->validateCart($carts);
-        $weight = $valid['total']['weight'] * 1000;
-        if ($weight <= 0) return $this->jsonError('Invalid weight');
+        $weight = $this->convertToGram($valid['total']['weight']);
+
+        if ($weight <= 0) {
+            return $this->jsonError('Invalid weight');
+        }
 
         $parameter = [
             "origin" => 153,
@@ -121,11 +141,16 @@ class ShopController extends Controller
             "weight" => $weight,
             "courier" => $request->courier
         ];
+
         $response = $this->getServices($parameter);
-        if ($response['error']) return $this->jsonError('Courier service unavailable: ' . $response['error']);
+
+        if ($response['error']) {
+            return $this->jsonError('Courier service unavailable: ' . $response['error']);
+        }
 
         $decoded = json_decode($response['response']);
         $costs = $decoded->rajaongkir->results[0]->costs ?? [];
+
         $services = array_map(function ($cost) {
             return [
                 'service' => $cost->service,
@@ -152,13 +177,20 @@ class ShopController extends Controller
     public function payment(Request $request)
     {
         $user = Auth::user();
-        if (!$user) return $this->jsonError("User not found");
+        if (!$user) {
+            return $this->jsonError("User not found");
+        }
 
-        $request->validate(['courier' => 'required', 'service' => 'required', 'carts' => 'required']);
+        $request->validate([
+            'courier' => 'required',
+            'service' => 'required',
+            'carts' => 'required'
+        ]);
 
-        $carts = json_decode($request->carts, true);
-        $origin = 153;
-        $destination = $user->city_id;
+        $carts = json_decode($request->carts, true) ?? [];
+        if (empty($carts)) {
+            return $this->jsonError('Invalid carts data');
+        }
 
         DB::beginTransaction();
         try {
@@ -174,7 +206,9 @@ class ShopController extends Controller
 
             foreach ($carts as $cart) {
                 $book = Book::find($cart['id']);
-                if (!$book || $book->stock < $cart['quantity']) throw new \Exception('Book unavailable or out of stock');
+                if (!$book || $book->stock < $cart['quantity']) {
+                    throw new \Exception('Book unavailable or out of stock');
+                }
 
                 BookOrder::create([
                     'book_id' => $book->id,
@@ -187,22 +221,32 @@ class ShopController extends Controller
                 $totalWeight += $book->weight * $cart['quantity'];
             }
 
-            $weight = $totalWeight * 1000;
-            if ($weight <= 0) throw new \Exception('Invalid weight');
+            $weight = $this->convertToGram($totalWeight);
+
+            if ($weight <= 0) {
+                throw new \Exception('Invalid weight');
+            }
 
             $cost = $this->getServices([
-                "origin" => $origin,
-                "destination" => $destination,
+                "origin" => 153,
+                "destination" => $user->city_id,
                 "weight" => $weight,
                 "courier" => $request->courier
             ]);
-            if ($cost['error']) throw new \Exception('Courier service unavailable');
+
+            if ($cost['error']) {
+                throw new \Exception('Courier service unavailable');
+            }
 
             $services = json_decode($cost['response'])->rajaongkir->results[0]->costs ?? [];
             $serviceCost = collect($services)->firstWhere('service', $request->service)->cost[0]->value ?? 0;
-            if ($serviceCost <= 0) throw new \Exception('Invalid service cost');
+
+            if ($serviceCost <= 0) {
+                throw new \Exception('Invalid service cost');
+            }
 
             $order->update(['total_bill' => $totalPrice + $serviceCost]);
+
             DB::commit();
 
             return $this->jsonSuccess('Transaction success', [
@@ -211,7 +255,7 @@ class ShopController extends Controller
                 'invoice_number' => $order->invoice_number
             ]);
         } catch (\Exception $e) {
-            DB::rollback();
+            DB::rollBack();
             return $this->jsonError($e->getMessage());
         }
     }
@@ -219,10 +263,12 @@ class ShopController extends Controller
     public function myOrder()
     {
         $user = Auth::user();
-        if (!$user) return $this->jsonError('User not found');
+        if (!$user) {
+            return $this->jsonError('User not found');
+        }
 
         $orders = Order::where('user_id', $user->id)->orderByDesc('id')->get();
-        return $this->jsonSuccess('My orders', $orders);
+        return $this->jsonSuccess('My orders', OrderResource::collection($orders));
     }
 
     private function jsonSuccess($message, $data = null)
