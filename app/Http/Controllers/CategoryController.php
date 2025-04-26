@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Category;
+use Illuminate\Http\Request;
 use App\Http\Resources\Category as CategoryResource;
 use App\Http\Resources\Categories as CategoryResourceCollection;
 
@@ -16,33 +16,46 @@ class CategoryController extends Controller
 
     public function random($count)
     {
-        return new CategoryResourceCollection(
-            Category::inRandomOrder()->limit($count)->get()
-        );
+        $categories = Category::inRandomOrder()->limit($count)->get();
+        return new CategoryResourceCollection($categories);
     }
 
     public function store(Request $request)
     {
-        // Implementasi create category (optional)
+        // Belum diimplementasikan
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Store not implemented yet',
+        ], 501);
     }
 
     public function show($id)
     {
-        return new CategoryResource(Category::findOrFail($id));
+        $category = Category::findOrFail($id);
+        return new CategoryResource($category);
     }
 
     public function slug($slug)
     {
-        return new CategoryResource(Category::where('slug', $slug)->firstOrFail());
+        $category = Category::where('slug', $slug)->firstOrFail();
+        return new CategoryResource($category);
     }
 
     public function update(Request $request, $id)
     {
-        // Implementasi update category (optional)
+        // Belum diimplementasikan
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Update not implemented yet',
+        ], 501);
     }
 
     public function destroy($id)
     {
-        // Implementasi delete category (optional)
+        // Belum diimplementasikan
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Delete not implemented yet',
+        ], 501);
     }
 }
