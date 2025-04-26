@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Book;
 use Illuminate\Http\Request;
-use App\Models\Book; 
 use App\Http\Resources\Book as BookResource;
 use App\Http\Resources\Books as BookResourceCollection;
 
@@ -16,28 +16,31 @@ class BookController extends Controller
 
     public function top($count)
     {
-        return new BookResourceCollection(
-            Book::orderByDesc('views')->limit($count)->get()
-        );
+        $books = Book::orderByDesc('views')->limit($count)->get();
+        return new BookResourceCollection($books);
     }
 
     public function search($keyword)
     {
-        return new BookResourceCollection(
-            Book::where('title', 'like', '%' . $keyword . '%')
-                ->orderByDesc('views')
-                ->get()
-        );
+        $books = Book::where('title', 'like', "%{$keyword}%")
+                     ->orderByDesc('views')
+                     ->get();
+        return new BookResourceCollection($books);
     }
 
     public function store(Request $request)
     {
-        // Implementasi menyusul
+        // Belum diimplementasikan
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Store not implemented yet',
+        ], 501);
     }
 
     public function show($id)
     {
-        return new BookResource(Book::findOrFail($id));
+        $book = Book::findOrFail($id);
+        return new BookResource($book);
     }
 
     public function slug($slug)
@@ -48,7 +51,11 @@ class BookController extends Controller
 
     public function update(Request $request, $id)
     {
-        // Implementasi menyusul
+        // Belum diimplementasikan
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Update not implemented yet',
+        ], 501);
     }
 
     public function cart(Request $request)
@@ -64,17 +71,16 @@ class BookController extends Controller
 
         $bookCarts = collect($carts)->map(function ($cart) {
             $book = Book::find($cart['id']);
-
-            if (!$book) return null;
-
-            $quantity = (int) $cart['quantity'];
-            $stock = (int) $book->stock;
-
-            $note = 'safe';
-            if ($stock < $quantity) {
-                $note = $stock > 0 ? 'out of stock' : 'unsafe';
-                $quantity = $stock;
+            if (!$book) {
+                return null;
             }
+
+            $quantity = min((int) $cart['quantity'], (int) $book->stock);
+            $note = match (true) {
+                $book->stock <= 0 => 'unsafe',
+                $book->stock < $cart['quantity'] => 'out of stock',
+                default => 'safe',
+            };
 
             return [
                 'id' => $book->id,
@@ -82,13 +88,13 @@ class BookController extends Controller
                 'cover' => $book->cover,
                 'price' => $book->price,
                 'quantity' => $quantity,
-                'note' => $note
+                'note' => $note,
             ];
         })->filter()->values();
 
         return response()->json([
             'status' => 'success',
-            'message' => 'carts',
+            'message' => 'Carts retrieved successfully',
             'data' => $bookCarts,
         ], 200);
     }
