@@ -7,6 +7,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Faker\Factory;
 use Carbon\Carbon;
+
 class CategoriesTableSeeder extends Seeder
 {
     /**
@@ -18,9 +19,18 @@ class CategoriesTableSeeder extends Seeder
     {
         $categories = [];
         $faker = Factory::create();
-        $image_categories = ['abstract', 'animals', 'business', 'cats', 'city', 'food',
-        'nature', 'technics', 'transport'];
-        for($i=0;$i<8;$i++){
+        $image_categories = [
+            'abstract',
+            'animals',
+            'business',
+            'cats',
+            'city',
+            'food',
+            'nature',
+            'technics',
+            'transport'
+        ];
+        for ($i = 0; $i < 8; $i++) {
             $name = $faker->unique()->word();
             $name = str_replace('.', '', $name);
             $slug = str_replace(' ', '-', strtolower($name));
