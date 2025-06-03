@@ -25,7 +25,7 @@ class BooksTableSeeder extends Seeder
             'price' => 100000,
             'weight' => 0.5,
             'status' => 'PUBLISH',
-        ],[
+        ], [
             'title' => 'Mastering Linux Security and Hardening',
             'slug' => 'mastering-linux-security-and-hardening',
             'description' => 'A comprehensive guide to mastering the art of preventing your Linux system from getting compromised',
@@ -35,7 +35,7 @@ class BooksTableSeeder extends Seeder
             'price' => 125000,
             'weight' => 0.5,
             'status' => 'PUBLISH',
-        ],[
+        ], [
             'title' => 'Mastering PostgreSQL 10',
             'slug' => 'mastering-postgresql-10',
             'description' => 'Master the capabilities of PostgreSQL 10 to efficiently manage and maintain your database',
@@ -45,7 +45,7 @@ class BooksTableSeeder extends Seeder
             'price' => 90000,
             'weight' => 0.5,
             'status' => 'PUBLISH',
-        ],[
+        ], [
             'title' => 'Python Programming Blueprints',
             'slug' => 'c++-high-performance',
             'description' => 'How to build useful, real-world applications in the Python programming language',
